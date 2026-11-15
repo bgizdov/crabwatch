@@ -178,6 +178,7 @@ export async function createSampler({ threshold = 5, platform = process.platform
         question: info?.question ?? null,
         lastActivityMs: info?.lastActivityMs ?? null,
         title: info?.title ?? null,
+        model: info?.model ?? null,
       });
     }
     const isServer = isOpencodeServer(a.args);
@@ -190,6 +191,7 @@ export async function createSampler({ threshold = 5, platform = process.platform
       question: info?.question ?? null,
       lastActivityMs: info?.lastActivityMs ?? null,
       title: info?.title ?? null,
+      model: info?.model ?? null,
     });
   };
 

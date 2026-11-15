@@ -1,6 +1,7 @@
 // Turns pixel grids into ANSI half-block text and lays out agent cards.
 import { SPRITES, spriteFrame, OVERLAYS, OVERLAY_PALETTE } from './sprites.js';
 import { moodOf, decayLevel, pingPong } from './motion.js';
+import { shortModel } from './model.js';
 
 const ESC = '\x1b[';
 const RESET = `${ESC}0m`;
@@ -197,6 +198,7 @@ export function renderCard(agent, tick, motion = NO_MOTION) {
     pad(`${agentLabel(agent)} ${fg(GRAY)}#${agent.pid}${RESET}`, CARD_WIDTH),
     pad(cut(agent.name || '-', CARD_WIDTH - 1), CARD_WIDTH),
     pad(agent.title ? `${fg(GRAY)}${cut(agent.title, CARD_WIDTH - 1)}${RESET}` : '', CARD_WIDTH),
+    pad(`${fg(GRAY)}${cut(shortModel(agent.model) ?? '', CARD_WIDTH - 1)}${RESET}`, CARD_WIDTH),
     pad(statusLine(agent, tick), CARD_WIDTH),
     pad(`${fg(GRAY)}session ${formatDuration(agent.sessionSec ?? 0)}${RESET}`, CARD_WIDTH),
     pad(idleLine(agent), CARD_WIDTH),

@@ -96,7 +96,7 @@ test('renderCard keeps a fixed size for every mood, transition and decay level',
         for (const tick of [0, 1, 2, 3, 23]) {
           const lines = renderCard({ ...base, kind, ...m }, tick, motion);
           assert.deepEqual([...cardWidth(lines)], [CARD_WIDTH], `${kind} ${JSON.stringify(m)} ${motion?.transition}`);
-          assert.equal(lines.length, 15);
+          assert.equal(lines.length, 16);
         }
       }
     }
@@ -138,4 +138,16 @@ test('renderCard shows the session title, truncated, and keeps a blank line with
   assert.ok(plain.some((l) => l.startsWith('Missing OpenCode') && l.includes('…')));
   assert.equal(new Set(titled.map(visibleWidth)).size, 1);
   assert.equal(renderCard(base, 0).length, titled.length, 'same height with or without a title');
+});
+
+test('renderCard shows the model when known and keeps the same height', () => {
+  const base = { kind: 'claude', pid: 1, name: 'p', state: 'sleeping', cpu: 0, sessionSec: 125 };
+  const without = renderCard(base, 0);
+  const withModel = renderCard({ ...base, model: 'claude-opus-5-5' }, 0);
+  assert.equal(without.length, withModel.length);
+  assert.ok(withModel.join('\n').includes('opus-5-5'));
+  assert.ok(!withModel.join('\n').includes('claude-opus'));
+  assert.equal(new Set(withModel.map(visibleWidth)).size, 1);
+  const long = renderCard({ ...base, model: 'x'.repeat(60) }, 0);
+  assert.equal(new Set(long.map(visibleWidth)).size, 1);
 });
