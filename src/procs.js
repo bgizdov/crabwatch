@@ -4,6 +4,7 @@ import { readFileSync, readlinkSync, existsSync } from 'node:fs';
 import { basename } from 'node:path';
 import { claudeAgentInfo, createOpencodeReader } from './sessions.js';
 import { idleSeconds } from './idle.js';
+import { listDarwinProcs, darwinCwds, DARWIN_HZ } from './darwin.js';
 
 const KINDS = [
   { kind: 'claude', re: /^claude$/ },
@@ -66,7 +67,7 @@ export function stateFor(cpu, threshold, busy) {
   return cpu >= threshold ? 'working' : 'sleeping';
 }
 
-// ---- system access (Linux /proc) ----
+// ---- system access: Linux reads /proc, macOS uses ps + lsof ----
 
 export function listProcs() {
   const out = execFileSync('ps', ['-eo', 'pid=,ppid=,etimes=,comm=,args='], { encoding: 'utf8' });
@@ -108,22 +109,52 @@ function procCwd(pid) {
   }
 }
 
+function linuxSystem() {
+  if (!existsSync('/proc/self/stat')) return null;
+  return {
+    hz: clockTicks(),
+    listProcs,
+    ticksOf: () => procTicks,
+    cwdsOf: (pids) => new Map(pids.map((pid) => [pid, procCwd(pid)])),
+    procStart: procStartTicks,
+  };
+}
+
+function darwinSystem() {
+  return {
+    hz: DARWIN_HZ,
+    listProcs: listDarwinProcs,
+    ticksOf: (procs) => {
+      const ticks = new Map(procs.map((p) => [p.pid, p.ticks]));
+      return (pid) => ticks.get(pid) ?? 0;
+    },
+    cwdsOf: darwinCwds,
+    procStart: () => null, // no /proc starttime; the session file's pid check still applies
+  };
+}
+
+export function systemFor(platform) {
+  if (platform === 'darwin') return darwinSystem();
+  if (platform === 'linux') return linuxSystem();
+  return null;
+}
+
 // Returns a sampler: call it repeatedly; it tracks CPU between calls.
-export async function createSampler({ threshold = 5 } = {}) {
-  if (!existsSync('/proc/self/stat')) {
-    throw new Error('Live mode needs Linux /proc. Try --demo.');
+export async function createSampler({ threshold = 5, platform = process.platform } = {}) {
+  const sys = systemFor(platform);
+  if (!sys) {
+    throw new Error(`Live mode supports Linux and macOS, not ${platform}. Try --demo.`);
   }
-  const hz = clockTicks();
+  const { hz } = sys;
   const opencodeInfo = await createOpencodeReader();
   let prev = { time: 0, ticks: new Map() };
   const smooth = new Map();
 
-  const enrich = (a, cpu, nowMs) => {
-    const cwd = procCwd(a.pid);
+  const enrich = (a, cpu, nowMs, cwd) => {
     const base = { ...a, name: basename(cwd), cpu, sessionSec: a.etimes };
     const withIdle = (agent) => ({ ...agent, idleSec: idleSeconds(agent, nowMs) });
     if (a.kind === 'claude') {
-      const info = claudeAgentInfo(a.pid, procStartTicks(a.pid));
+      const info = claudeAgentInfo(a.pid, sys.procStart(a.pid));
       return withIdle({
         ...base,
         state: stateFor(cpu, threshold, info?.busy),
@@ -146,14 +177,17 @@ export async function createSampler({ threshold = 5 } = {}) {
 
   return function sample() {
     const nowMs = Date.now();
-    const agents = findAgents(listProcs());
-    const ticks = new Map(agents.map((a) => [a.pid, a.pids.reduce((s, p) => s + procTicks(p), 0)]));
+    const procs = sys.listProcs();
+    const agents = findAgents(procs);
+    const ticksOf = sys.ticksOf(procs);
+    const ticks = new Map(agents.map((a) => [a.pid, a.pids.reduce((s, p) => s + ticksOf(p), 0)]));
+    const cwds = sys.cwdsOf(agents.map((a) => a.pid));
     const dt = nowMs / 1000 - prev.time;
     const result = agents.map((a) => {
       const raw = cpuPercent(prev.ticks.get(a.pid), ticks.get(a.pid), dt, hz);
       const cpu = 0.5 * (smooth.get(a.pid) ?? raw) + 0.5 * raw;
       smooth.set(a.pid, cpu);
-      return enrich(a, cpu, nowMs);
+      return enrich(a, cpu, nowMs, cwds.get(a.pid) ?? '');
     });
     prev = { time: nowMs / 1000, ticks };
     return result;
