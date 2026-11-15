@@ -1,0 +1,136 @@
+#!/usr/bin/env node
+// Pixel-art terminal dashboard: Claude crabs and opencode bots, sleeping or working.
+import { createSampler } from './procs.js';
+import { renderCard, layout } from './render.js';
+import { visibleAgents } from './idle.js';
+
+const FRAME_MS = 250;
+const SAMPLE_MS = 1000;
+
+function parseArgs(argv) {
+  const get = (flag, fallback) => {
+    const i = argv.indexOf(flag);
+    return i >= 0 && argv[i + 1] ? Number(argv[i + 1]) : fallback;
+  };
+  const threshold = get('--threshold', 5);
+  if (!Number.isFinite(threshold) || threshold < 0) {
+    throw new Error('--threshold must be a non-negative number (CPU %)');
+  }
+  const maxIdle = get('--max-idle', 24);
+  if (!Number.isFinite(maxIdle) || maxIdle < 0) {
+    throw new Error('--max-idle must be a non-negative number of hours (0 shows all)');
+  }
+  return { demo: argv.includes('--demo'), threshold, maxIdle, help: argv.includes('--help') };
+}
+
+function demoSampler() {
+  const names = ['api-server', 'web-app', 'infra', 'docs-site', 'mobile', 'data-etl'];
+  let agents = names.map((name, i) => ({
+    kind: i % 3 === 2 ? 'opencode' : 'claude',
+    pid: 1000 + i * 137,
+    name,
+    sessionSec: 300 + i * 1900,
+    idleSec: i === 5 ? 30 * 3600 : 0,
+    state: i % 2 ? 'working' : 'sleeping',
+    cpu: 0,
+    question: null,
+  }));
+  const questions = ['Want me to open a pull request?', 'Allow Bash?', 'Use Postgres or SQLite for the cache?', 'Shall I run the migrations?'];
+  return () => {
+    agents = agents.map((a) => {
+      const state = Math.random() < 0.12 ? (a.state === 'working' ? 'sleeping' : 'working') : a.state;
+      const cpu = state === 'working' ? 15 + Math.random() * 70 : Math.random() * 2;
+      const flip = Math.random() < 0.08;
+      const question = flip ? (a.question ? null : questions[Math.floor(Math.random() * questions.length)]) : a.question;
+      const finalState = question ? 'sleeping' : state;
+      const idleSec = finalState === 'working' ? 0 : a.idleSec + 1;
+      return { ...a, state: finalState, cpu, question, idleSec, sessionSec: a.sessionSec + 1 };
+    });
+    return agents;
+  };
+}
+
+const BOLD = '\x1b[1m';
+const RESET = '\x1b[0m';
+
+const GRAY = '\x1b[38;2;130;130;140m';
+
+function frame(allAgents, tick, opts, showHidden) {
+  const { demo, maxIdle } = opts;
+  const filtered = visibleAgents(allAgents, maxIdle * 3600);
+  const idleCount = allAgents.length - filtered.shown.length;
+  const agents = showHidden ? allAgents : filtered.shown;
+  const hidden = showHidden ? 0 : idleCount;
+  const width = process.stdout.columns || 80;
+  const asking = agents.filter((a) => a.question).length;
+  const working = agents.filter((a) => !a.question && a.state === 'working').length;
+  const header = `${BOLD} ◆ AGENT DASHBOARD${RESET}${demo ? ' (demo)' : ''}   `
+    + `\x1b[38;2;255;210;70m${asking} asking${RESET} · `
+    + `\x1b[38;2;110;220;120m${working} working${RESET} · `
+    + `\x1b[38;2;120;150;255m${agents.length - working - asking} sleeping${RESET}`
+    + (hidden ? `${GRAY} · ${hidden} hidden (idle >${maxIdle}h)${RESET}` : '')
+    + (showHidden && idleCount ? `${GRAY} · showing ${idleCount} idle >${maxIdle}h${RESET}` : '');
+  const sorted = [...agents].sort((a, b) => a.kind.localeCompare(b.kind) || a.pid - b.pid);
+  const body = sorted.length
+    ? layout(sorted.map((a) => renderCard(a, tick + a.pid)), width - 2).map((l) => ` ${l}`)
+    : ['', hidden ? '   Everyone has been idle a long time. zZz' : '   No claude or opencode processes found. zZz',
+      hidden ? '   (press h to show them)' : '   (run with --demo to see the crew)'];
+  const toggle = idleCount ? ` · h ${showHidden ? 'hide' : 'show'} ${idleCount} idle` : '';
+  const footer = `${GRAY} q quit${toggle}${RESET}`;
+  return ['', header, '', ...body, '', footer].join('\x1b[K\n');
+}
+
+async function main() {
+  const opts = parseArgs(process.argv.slice(2));
+  if (opts.help) {
+    process.stdout.write('Usage: agent-dashboard [--demo] [--threshold <cpu%>] [--max-idle <hours, 0 = show all>]\n');
+    return;
+  }
+  const sample = opts.demo ? demoSampler() : await createSampler({ threshold: opts.threshold });
+
+  let agents = sample();
+  let tick = 0;
+  let showHidden = opts.maxIdle === 0;
+  const out = process.stdout;
+  out.write('\x1b[?1049h\x1b[?25l'); // alt screen, hide cursor
+
+  const cleanup = () => {
+    out.write('\x1b[?25h\x1b[?1049l');
+    process.exit(0);
+  };
+  process.on('SIGINT', cleanup);
+  process.on('SIGTERM', cleanup);
+  if (process.stdin.isTTY) {
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.on('data', (k) => {
+      const key = String(k).toLowerCase();
+      if (k[0] === 3 || key === 'q') cleanup();
+      if (key === 'h') {
+        showHidden = !showHidden;
+        draw();
+      }
+    });
+  }
+
+  function draw() {
+    out.write(`\x1b[H${frame(agents, tick, opts, showHidden)}\x1b[J`);
+  }
+  setInterval(() => { tick += 1; draw(); }, FRAME_MS);
+  setInterval(() => {
+    try {
+      agents = sample();
+    } catch (err) {
+      out.write(`\x1b[?25h\x1b[?1049l`);
+      process.stderr.write(`agent-dashboard: failed to sample processes: ${err.message}\n`);
+      process.exit(1);
+    }
+  }, SAMPLE_MS);
+  out.on('resize', () => out.write('\x1b[2J'));
+  draw();
+}
+
+main().catch((err) => {
+  process.stderr.write(`agent-dashboard: ${err.message}\n`);
+  process.exit(1);
+});
