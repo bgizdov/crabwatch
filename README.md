@@ -2,6 +2,8 @@
 
 A pixel-art terminal dashboard that shows your coding agents. Claude Code sessions are orange crabs (Clawd) and opencode sessions are robots. Each one is animated as **working** or **sleeping**.
 
+![crabwatch demo](docs/demo.png)
+
 ## How it works
 - Finds `claude` and `opencode` processes using `ps`.
 - Adds up CPU use from `/proc` for each agent and all of its child processes, so running tools count as work.
