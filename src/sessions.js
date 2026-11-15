@@ -59,6 +59,12 @@ function tailLines(path) {
   });
 }
 
+// Session title: a /rename (custom-title) beats the AI title, which Claude Code re-appends every few turns.
+export function claudeTitle(entries) {
+  const last = (type, key) => entries.findLast((e) => e?.type === type && e[key])?.[key] ?? null;
+  return last('custom-title', 'customTitle') ?? last('ai-title', 'aiTitle');
+}
+
 // Cached per transcript: re-parse only when the file or session status changes.
 const claudeCache = new Map();
 
@@ -67,6 +73,7 @@ export function claudeAgentInfo(pid, procStart) {
   if (!info) return null;
   let question = null;
   let messageMs = null;
+  let title = null;
   const path = findTranscript(info.cwd, info.sessionId);
   if (path) {
     try {
@@ -75,10 +82,16 @@ export function claudeAgentInfo(pid, procStart) {
       let cached = claudeCache.get(path);
       if (cached?.key !== key) {
         const entries = tailLines(path);
-        cached = { key, question: claudeQuestion(entries, info.status), messageMs: lastMessageMs(entries) };
+        cached = {
+          key,
+          question: claudeQuestion(entries, info.status),
+          messageMs: lastMessageMs(entries),
+          // the title can scroll out of the tail window; keep the last one seen
+          title: claudeTitle(entries) ?? cached?.title ?? null,
+        };
         claudeCache.set(path, cached);
       }
-      ({ question, messageMs } = cached);
+      ({ question, messageMs, title } = cached);
     } catch {
       question = null;
     }
@@ -89,6 +102,7 @@ export function claudeAgentInfo(pid, procStart) {
     startedAt: info.startedAt,
     lastActivityMs,
     question,
+    title,
   };
 }
 
@@ -125,14 +139,19 @@ export async function createOpencodeReader() {
   if (!db) return () => null;
   const projectsQ = tryPrepare(db, `select id from project where worktree = ?
     union select project_id from project_directory where directory = ?`);
-  const latest = (table, cols) => ({
-    byProject: tryPrepare(db, `select ${cols} from ${table}
-      where project_id = ? and parent_id is null and time_archived is null order by time_updated desc limit 1`),
-    any: tryPrepare(db, `select ${cols} from ${table}
-      where parent_id is null and time_archived is null order by time_updated desc limit 1`),
-  });
-  const v1 = latest('session', 'id, time_updated');
-  const v2 = latest('session_v2', 'id, time_updated, time_busy, time_idle');
+  // The project row gives the repo a session belongs to; the session's own directory is
+  // often an opencode worktree with a random name (…/worktree/<hash>/silent-engine).
+  const latest = (table, cols) => {
+    const select = `select ${cols}, p.worktree as project_dir, p.name as project_name
+      from ${table} s left join project p on p.id = s.project_id
+      where s.parent_id is null and s.time_archived is null`;
+    return {
+      byProject: tryPrepare(db, `${select} and s.project_id = ? order by s.time_updated desc limit 1`),
+      any: tryPrepare(db, `${select} order by s.time_updated desc limit 1`),
+    };
+  };
+  const v1 = latest('session', 's.id, s.title, s.directory, s.time_updated');
+  const v2 = latest('session_v2', 's.id, s.title, s.directory, s.time_updated, s.time_busy, s.time_idle');
   const v1MessageQ = tryPrepare(db, 'select id, data, time_updated from message where session_id = ? order by time_created desc limit 1');
   const v1PartsQ = tryPrepare(db, 'select data from part where message_id = ? order by time_created');
   const v2MessageQ = tryPrepare(db, `select type, data, time_updated from session_message
@@ -181,7 +200,15 @@ export async function createOpencodeReader() {
       const idle = typeof busy === 'boolean' ? !busy : cpuIdle;
       const msg = lastMessage(session);
       const lastActivityMs = Math.max(session.row.time_updated ?? 0, msg?.time ?? 0) || null;
-      return { busy, question: msg ? opencodeQuestion(msg.role, msg.parts, idle) : null, lastActivityMs };
+      return {
+        busy,
+        question: msg ? opencodeQuestion(msg.role, msg.parts, idle) : null,
+        lastActivityMs,
+        directory: session.row.directory ?? null,
+        title: session.row.title ?? null,
+        projectDir: session.row.project_dir ?? null,
+        projectName: session.row.project_name ?? null,
+      };
     } catch {
       return null;
     }

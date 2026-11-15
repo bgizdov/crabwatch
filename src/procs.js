@@ -56,6 +56,21 @@ export function findAgents(procs) {
     }));
 }
 
+// `opencode serve` (the web UI backend) hosts sessions for every project.
+export function isOpencodeServer(args) {
+  const argv = args.trim().split(/\s+/);
+  return argv[1] === 'serve';
+}
+
+// A server bot is named after the project (repo, not opencode worktree) of the session it tracks,
+// since the folder it was launched from says nothing about what it is doing.
+export function opencodeIdentity(cwd, isServer, info) {
+  if (!isServer) return { kind: 'opencode', name: basename(cwd) };
+  const dir = info?.projectDir || info?.directory;
+  const name = info?.projectName || (dir ? basename(dir) : 'no session');
+  return { kind: 'opencode-web', name };
+}
+
 export function cpuPercent(prevTicks, curTicks, dtSec, hz) {
   if (prevTicks === undefined || dtSec <= 0 || curTicks < prevTicks) return 0;
   return ((curTicks - prevTicks) / hz / dtSec) * 100;
@@ -162,16 +177,19 @@ export async function createSampler({ threshold = 5, platform = process.platform
         sessionSec: info?.startedAt ? Math.max(0, (nowMs - info.startedAt) / 1000) : a.etimes,
         question: info?.question ?? null,
         lastActivityMs: info?.lastActivityMs ?? null,
+        title: info?.title ?? null,
       });
     }
-    const isServer = /\sserve(\s|$)/.test(a.args);
+    const isServer = isOpencodeServer(a.args);
     const info = opencodeInfo(cwd, stateFor(cpu, threshold) === 'sleeping', isServer);
     return withIdle({
       ...base,
+      ...opencodeIdentity(cwd, isServer, info),
       state: stateFor(cpu, threshold, info?.busy),
       busy: info?.busy === true,
       question: info?.question ?? null,
       lastActivityMs: info?.lastActivityMs ?? null,
+      title: info?.title ?? null,
     });
   };
 

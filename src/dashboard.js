@@ -29,10 +29,13 @@ function parseArgs(argv) {
 
 function demoSampler() {
   const names = ['api-server', 'web-app', 'infra', 'docs-site', 'mobile', 'data-etl'];
+  const titles = ['Rate limiter for public API', 'Dark mode toggle', 'Terraform state cleanup',
+    'Fix broken doc links', 'Push notification opt-in', 'Nightly import retries'];
   let agents = names.map((name, i) => ({
-    kind: i % 3 === 2 ? 'opencode' : 'claude',
+    kind: ['claude', 'claude', 'opencode', 'claude', 'claude', 'opencode-web'][i],
     pid: 1000 + i * 137,
     name,
+    title: titles[i],
     sessionSec: 300 + i * 1900,
     idleSec: [2 * 3600, 0, 7 * 3600, 0, 20 * 60, 30 * 3600][i],
     state: i % 2 ? 'working' : 'sleeping',

@@ -90,13 +90,13 @@ test('renderCard keeps a fixed size for every mood, transition and decay level',
     { state: 'sleeping', idleSec: 30 * 3600 }, { state: 'sleeping', question: 'Allow Bash?' },
   ];
   const motions = [undefined, ...['wake', 'yawn', 'done'].map((t) => ({ transition: t, age: 1, pos: 4 }))];
-  for (const kind of ['claude', 'opencode']) {
+  for (const kind of ['claude', 'opencode', 'opencode-web']) {
     for (const m of moods) {
       for (const motion of motions) {
         for (const tick of [0, 1, 2, 3, 23]) {
           const lines = renderCard({ ...base, kind, ...m }, tick, motion);
           assert.deepEqual([...cardWidth(lines)], [CARD_WIDTH], `${kind} ${JSON.stringify(m)} ${motion?.transition}`);
-          assert.equal(lines.length, 14);
+          assert.equal(lines.length, 15);
         }
       }
     }
@@ -121,4 +121,21 @@ test('agentArt widens with the walking range', () => {
   const lines = agentArt(agent, 0, undefined, 10);
   assert.equal(lines.length, 5);
   assert.deepEqual([...cardWidth(lines)], [28]);
+});
+
+test('renderCard labels the opencode web server bot with its own sprite', () => {
+  const agent = { kind: 'opencode-web', pid: 7, name: 'quiet-panda', state: 'working', cpu: 10, sessionSec: 60, idleSec: 0 };
+  const text = renderCard(agent, 0).join('');
+  assert.ok(text.includes('oc web'));
+  assert.ok(text.includes('quiet-panda'));
+  assert.notDeepEqual(spriteFrame('opencode-web', 'working', 0), spriteFrame('opencode', 'working', 0));
+});
+
+test('renderCard shows the session title, truncated, and keeps a blank line without one', () => {
+  const base = { kind: 'claude', pid: 1, name: 'proj', state: 'working', cpu: 9, sessionSec: 60, idleSec: 0 };
+  const titled = renderCard({ ...base, title: 'Missing OpenCode sessions in devcontainer-setup' }, 0);
+  const plain = titled.map((l) => l.replace(/\x1b\[[0-9;]*m/g, ''));
+  assert.ok(plain.some((l) => l.startsWith('Missing OpenCode') && l.includes('…')));
+  assert.equal(new Set(titled.map(visibleWidth)).size, 1);
+  assert.equal(renderCard(base, 0).length, titled.length, 'same height with or without a title');
 });
