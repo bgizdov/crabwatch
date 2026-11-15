@@ -1,0 +1,13 @@
+{
+  "name": "crabwatch",
+  "version": "0.1.0",
+  "description": "Pixel-art terminal dashboard of Claude crabs and opencode bots that sleep or work",
+  "type": "module",
+  "bin": { "crabwatch": "src/dashboard.js" },
+  "scripts": {
+    "start": "node src/dashboard.js",
+    "demo": "node src/dashboard.js --demo",
+    "test": "node --test"
+  },
+  "engines": { "node": ">=20" }
+}
