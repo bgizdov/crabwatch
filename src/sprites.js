@@ -70,7 +70,7 @@ export const SPRITES = {
 
 // Idle-decay layers drawn over a sprite. A web only fills empty pixels; sand buries the agent.
 export const OVERLAY_PALETTE = {
-  w: [150, 150, 160], p: [60, 40, 40], s: [222, 196, 140], S: [190, 160, 105],
+  w: [205, 205, 220], p: [190, 120, 230], s: [222, 196, 140], S: [190, 160, 105],
 };
 const BLANK = '..............';
 export const OVERLAYS = {
