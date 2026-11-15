@@ -6,6 +6,11 @@ const BOT_PALETTE = {
   a: [255, 210, 70], r: [255, 90, 90],
 };
 
+const WEB_PALETTE = {
+  g: [150, 120, 220], b: [30, 30, 70], w: [80, 230, 255], c: [120, 220, 160],
+  a: [255, 210, 70], x: [90, 100, 120],
+};
+
 export const SPRITES = {
   claude: {
     width: 14,
@@ -63,6 +68,31 @@ export const SPRITES = {
       ],
       peek: [
         ['..............', '......x.......', '..gggggggggg..', '..gddddddddg..', '..gddddddcdg..', '..gdxxdddddg..', '..gggggggggg..', '.g.gggggggg.g.', '...gg....gg...', '...gg....gg...'],
+      ],
+    },
+  },
+  // `opencode serve`: a purple screen-faced bot broadcasting to the web UI.
+  'opencode-web': {
+    width: 14,
+    height: 10,
+    palette: WEB_PALETTE,
+    frames: {
+      working: [
+        ['.c....aa....c.', 'c.....gg.....c', '..gggggggggg..', '..gbbbbbbbbg..', '..gbwbbbbwbg..', '..gbbwwwwbbg..', '..gggggggggg..', '.g.gggggggg.g.', '...gg....gg...', '...gg....gg...'],
+        ['c.....aa.....c', '.c....gg....c.', '..gggggggggg..', '..gbbbbbbbbg..', '..gbwbbbbwbg..', '..gbbwwwwbbg..', 'g.gggggggggg.g', '...gggggggg...', '...gg....gg...', '...gg....gg...'],
+      ],
+      sleeping: [
+        ['..............', '......xx......', '..gggggggggg..', '..gbbbbbbbbg..', '..gbbbbbbbbg..', '..gbxxbbxxbg..', '..gggggggggg..', '.g.gggggggg.g.', '...gg....gg...', '...gg....gg...'],
+      ],
+      wave: [
+        ['......aa......', 'g.....gg.....g', 'g.gggggggggg.g', '.ggbbbbbbbbgg.', '..gbwbbbbwbg..', '..gbbwwwwbbg..', '..gggggggggg..', '...gggggggg...', '...gg....gg...', '...gg....gg...'],
+        ['c.....aa.....c', '.c....gg....c.', '..gggggggggg..', '..gbbbbbbbbg..', '..gbwbbbbwbg..', '..gbbwwwwbbg..', 'g.gggggggggg.g', '.g.gggggggg.g.', '...gg....gg...', '...gg....gg...'],
+      ],
+      yawn: [
+        ['..............', '......xx......', '..gggggggggg..', '..gbbbbbbbbg..', '..gbxxbbxxbg..', '..gbbbwwbbbg..', '..gggggggggg..', '.g.gggggggg.g.', '...gg....gg...', '...gg....gg...'],
+      ],
+      peek: [
+        ['..............', '......xx......', '..gggggggggg..', '..gbbbbbbbbg..', '..gbbbbbbwbg..', '..gbxxbbbbbg..', '..gggggggggg..', '.g.gggggggg.g.', '...gg....gg...', '...gg....gg...'],
       ],
     },
   },

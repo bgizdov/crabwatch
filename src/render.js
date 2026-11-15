@@ -187,7 +187,8 @@ export function statusLine(agent, tick) {
   return `${fg(BLUE)}☾ SLEEP ${'.'.repeat(1 + (Math.floor(tick / 2) % 3))}${RESET}`;
 }
 
-export const agentLabel = (agent) => (agent.kind === 'claude' ? 'clawd' : 'opencode');
+const LABELS = { claude: 'clawd', opencode: 'opencode', 'opencode-web': 'oc web' };
+export const agentLabel = (agent) => LABELS[agent.kind] ?? agent.kind;
 
 export function renderCard(agent, tick, motion = NO_MOTION) {
   return [
@@ -195,6 +196,7 @@ export function renderCard(agent, tick, motion = NO_MOTION) {
     ...agentArt(agent, tick, motion).map((l) => pad(l, CARD_WIDTH)),
     pad(`${agentLabel(agent)} ${fg(GRAY)}#${agent.pid}${RESET}`, CARD_WIDTH),
     pad(cut(agent.name || '-', CARD_WIDTH - 1), CARD_WIDTH),
+    pad(agent.title ? `${fg(GRAY)}${cut(agent.title, CARD_WIDTH - 1)}${RESET}` : '', CARD_WIDTH),
     pad(statusLine(agent, tick), CARD_WIDTH),
     pad(`${fg(GRAY)}session ${formatDuration(agent.sessionSec ?? 0)}${RESET}`, CARD_WIDTH),
     pad(idleLine(agent), CARD_WIDTH),
