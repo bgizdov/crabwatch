@@ -64,7 +64,7 @@ function frame(allAgents, tick, opts, showHidden) {
   const width = process.stdout.columns || 80;
   const asking = agents.filter((a) => a.question).length;
   const working = agents.filter((a) => !a.question && a.state === 'working').length;
-  const header = `${BOLD} ◆ AGENT DASHBOARD${RESET}${demo ? ' (demo)' : ''}   `
+  const header = `${BOLD} 🦀 CRABWATCH${RESET}${demo ? ' (demo)' : ''}   `
     + `\x1b[38;2;255;210;70m${asking} asking${RESET} · `
     + `\x1b[38;2;110;220;120m${working} working${RESET} · `
     + `\x1b[38;2;120;150;255m${agents.length - working - asking} sleeping${RESET}`
@@ -83,7 +83,7 @@ function frame(allAgents, tick, opts, showHidden) {
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (opts.help) {
-    process.stdout.write('Usage: agent-dashboard [--demo] [--threshold <cpu%>] [--max-idle <hours, 0 = show all>]\n');
+    process.stdout.write('Usage: crabwatch [--demo] [--threshold <cpu%>] [--max-idle <hours, 0 = show all>]\n');
     return;
   }
   const sample = opts.demo ? demoSampler() : await createSampler({ threshold: opts.threshold });
@@ -122,7 +122,7 @@ async function main() {
       agents = sample();
     } catch (err) {
       out.write(`\x1b[?25h\x1b[?1049l`);
-      process.stderr.write(`agent-dashboard: failed to sample processes: ${err.message}\n`);
+      process.stderr.write(`crabwatch: failed to sample processes: ${err.message}\n`);
       process.exit(1);
     }
   }, SAMPLE_MS);
@@ -131,6 +131,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  process.stderr.write(`agent-dashboard: ${err.message}\n`);
+  process.stderr.write(`crabwatch: ${err.message}\n`);
   process.exit(1);
 });

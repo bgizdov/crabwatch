@@ -1,4 +1,4 @@
-# agent-dashboard
+# crabwatch
 
 A pixel-art terminal dashboard that shows your coding agents. Claude Code sessions are orange crabs (Clawd) and opencode sessions are robots. Each one is animated as **working** or **sleeping**.
 
