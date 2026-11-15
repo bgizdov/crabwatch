@@ -6,7 +6,7 @@ A pixel-art terminal dashboard that shows your coding agents. Claude Code sessio
 
 ## How it works
 - Finds `claude` and `opencode` processes using `ps`.
-- Adds up CPU use from `/proc` for each agent and all of its child processes, so running tools count as work.
+- Adds up CPU use for each agent and all of its child processes, so running tools count as work. On Linux this comes from `/proc`; on macOS from `ps` and `lsof`.
 - An agent is **working** when its CPU is at or above the threshold (default 5%). Otherwise it is **sleeping**.
 - Each card shows the agent's project folder, PID, CPU %, **session time** and **idle time**. Idle time is measured from the last transcript write or status change for Claude, and from the last session or message update for opencode.
 - A Claude session counts as working only while Claude Code marks it `busy`. An opencode bot counts as working while its latest session is busy (`time_busy` / `time_idle` in `session_v2`); a busy flag not updated for 30 minutes is treated as stale. CPU is used only when neither is available. Idle time comes from real activity (messages, status changes), so CPU spikes from an idle app don't count.
@@ -15,7 +15,7 @@ A pixel-art terminal dashboard that shows your coding agents. Claude Code sessio
 
 ## Requirements
 - Node.js 20 or newer. No npm packages needed.
-- Linux, for live mode (it reads `/proc`). Demo mode works anywhere.
+- Linux or macOS for live mode. Demo mode works anywhere.
 - A terminal with truecolor support.
 
 ## Run
