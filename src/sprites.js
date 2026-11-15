@@ -24,6 +24,22 @@ export const SPRITES = {
         ['..............', '..oooooooooo..', '..oooooooooo..', '..okkooookko..', 'oooooooooooooo',
           'o.oooooooooo.o', '..oooooooooo..', '..oooooooooo..', '..o.o....o.o..', '..o.o....o.o..'],
       ],
+      // both claws up / both claws out: waving for attention or celebrating
+      wave: [
+        ['o............o', 'o.oooooooooo.o', 'ooookooookoooo', '..ookooookoo..', '..oooooooooo..',
+          '..oooooooooo..', '..oooooooooo..', '..o.o....o.o..', '..o.o....o.o..', '..............'],
+        ['..............', '..oooooooooo..', '..ookooookoo..', 'o.ookooookoo.o', 'oooooooooooooo',
+          '..oooooooooo..', '..oooooooooo..', '..o.o....o.o..', '..o.o....o.o..', '..............'],
+      ],
+      yawn: [
+        ['..............', '..oooooooooo..', '..okkooookko..', '..ooookkoooo..', 'oooooooooooooo',
+          'o.oooooooooo.o', '..oooooooooo..', '..oooooooooo..', '..o.o....o.o..', '..o.o....o.o..'],
+      ],
+      // asleep, but one eye peeks open
+      peek: [
+        ['..............', '..oooooooooo..', '..oooooookoo..', '..okkooookoo..', 'oooooooooooooo',
+          'o.oooooooooo.o', '..oooooooooo..', '..oooooooooo..', '..o.o....o.o..', '..o.o....o.o..'],
+      ],
     },
   },
   opencode: {
@@ -38,8 +54,31 @@ export const SPRITES = {
       sleeping: [
         ['..............', '......x.......', '..gggggggggg..', '..gddddddddg..', '..gddddddddg..', '..gdxxddxxdg..', '..gggggggggg..', '.g.gggggggg.g.', '...gg....gg...', '...gg....gg...'],
       ],
+      wave: [
+        ['......a.......', 'g.....g......g', 'g.gggggggggg.g', '.ggddddddddgg.', '..gdcdddcddg..', '..gddddddddg..', '..gggggggggg..', '...gggggggg...', '...gg....gg...', '...gg....gg...'],
+        ['......r.......', '......g.......', '..gggggggggg..', '..gddddddddg..', '..gdcdddcddg..', '..gddddddddg..', 'g.gggggggggg.g', '.g.gggggggg.g.', '...gg....gg...', '...gg....gg...'],
+      ],
+      yawn: [
+        ['..............', '......x.......', '..gggggggggg..', '..gddddddddg..', '..gdxxddxxdg..', '..gddddcdddg..', '..gggggggggg..', '.g.gggggggg.g.', '...gg....gg...', '...gg....gg...'],
+      ],
+      peek: [
+        ['..............', '......x.......', '..gggggggggg..', '..gddddddddg..', '..gddddddcdg..', '..gdxxdddddg..', '..gggggggggg..', '.g.gggggggg.g.', '...gg....gg...', '...gg....gg...'],
+      ],
     },
   },
+};
+
+// Idle-decay layers drawn over a sprite. A web only fills empty pixels; sand buries the agent.
+export const OVERLAY_PALETTE = {
+  w: [150, 150, 160], p: [60, 40, 40], s: [222, 196, 140], S: [190, 160, 105],
+};
+const BLANK = '..............';
+export const OVERLAYS = {
+  web: [
+    ['wwww........w.', 'ww.w........w.', 'w...........p.', BLANK, BLANK, BLANK, BLANK, BLANK, BLANK, BLANK],
+    ['wwww........w.', 'ww.w........w.', 'w...........w.', '............p.', BLANK, BLANK, BLANK, BLANK, BLANK, BLANK],
+  ],
+  sand: [BLANK, BLANK, BLANK, BLANK, BLANK, '.....sss......', '...ssssSss....', '.ssSsssssssss.', 'ssssssssSsssss', 'sssSssssssssSs'],
 };
 
 export function spriteFrame(kind, state, tick) {

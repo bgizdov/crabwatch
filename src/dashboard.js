@@ -3,6 +3,8 @@
 import { createSampler } from './procs.js';
 import { renderCard, layout } from './render.js';
 import { visibleAgents } from './idle.js';
+import { renderBeach } from './beach.js';
+import { stepMotion, motionView, motionKey } from './motion.js';
 
 const FRAME_MS = 250;
 const SAMPLE_MS = 1000;
@@ -20,7 +22,9 @@ function parseArgs(argv) {
   if (!Number.isFinite(maxIdle) || maxIdle < 0) {
     throw new Error('--max-idle must be a non-negative number of hours (0 shows all)');
   }
-  return { demo: argv.includes('--demo'), threshold, maxIdle, help: argv.includes('--help') };
+  return {
+    demo: argv.includes('--demo'), beach: argv.includes('--beach'), threshold, maxIdle, help: argv.includes('--help'),
+  };
 }
 
 function demoSampler() {
@@ -30,7 +34,7 @@ function demoSampler() {
     pid: 1000 + i * 137,
     name,
     sessionSec: 300 + i * 1900,
-    idleSec: i === 5 ? 30 * 3600 : 0,
+    idleSec: [2 * 3600, 0, 7 * 3600, 0, 20 * 60, 30 * 3600][i],
     state: i % 2 ? 'working' : 'sleeping',
     cpu: 0,
     question: null,
@@ -55,7 +59,7 @@ const RESET = '\x1b[0m';
 
 const GRAY = '\x1b[38;2;130;130;140m';
 
-function frame(allAgents, tick, opts, showHidden) {
+function frame(allAgents, tick, opts, showHidden, motions, view) {
   const { demo, maxIdle } = opts;
   const filtered = visibleAgents(allAgents, maxIdle * 3600);
   const idleCount = allAgents.length - filtered.shown.length;
@@ -71,19 +75,23 @@ function frame(allAgents, tick, opts, showHidden) {
     + (hidden ? `${GRAY} · ${hidden} hidden (idle >${maxIdle}h)${RESET}` : '')
     + (showHidden && idleCount ? `${GRAY} · showing ${idleCount} idle >${maxIdle}h${RESET}` : '');
   const sorted = [...agents].sort((a, b) => a.kind.localeCompare(b.kind) || a.pid - b.pid);
+  const cards = () => layout(
+    sorted.map((a) => renderCard(a, tick + a.pid, motionView(motions.get(motionKey(a)), tick))),
+    width - 2,
+  ).map((l) => ` ${l}`);
   const body = sorted.length
-    ? layout(sorted.map((a) => renderCard(a, tick + a.pid)), width - 2).map((l) => ` ${l}`)
+    ? (view === 'beach' ? renderBeach(sorted, motions, tick, width) : cards())
     : ['', hidden ? '   Everyone has been idle a long time. zZz' : '   No claude or opencode processes found. zZz',
       hidden ? '   (press h to show them)' : '   (run with --demo to see the crew)'];
   const toggle = idleCount ? ` · h ${showHidden ? 'hide' : 'show'} ${idleCount} idle` : '';
-  const footer = `${GRAY} q quit${toggle}${RESET}`;
+  const footer = `${GRAY} q quit · b ${view === 'beach' ? 'cards' : 'beach'}${toggle}${RESET}`;
   return ['', header, '', ...body, '', footer].join('\x1b[K\n');
 }
 
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (opts.help) {
-    process.stdout.write('Usage: crabwatch [--demo] [--threshold <cpu%>] [--max-idle <hours, 0 = show all>]\n');
+    process.stdout.write('Usage: crabwatch [--demo] [--beach] [--threshold <cpu%>] [--max-idle <hours, 0 = show all>]\n');
     return;
   }
   const sample = opts.demo ? demoSampler() : await createSampler({ threshold: opts.threshold });
@@ -91,6 +99,8 @@ async function main() {
   let agents = sample();
   let tick = 0;
   let showHidden = opts.maxIdle === 0;
+  let view = opts.beach ? 'beach' : 'cards';
+  let motions = stepMotion(new Map(), agents, tick);
   const out = process.stdout;
   out.write('\x1b[?1049h\x1b[?25l'); // alt screen, hide cursor
 
@@ -110,13 +120,22 @@ async function main() {
         showHidden = !showHidden;
         draw();
       }
+      if (key === 'b') {
+        view = view === 'beach' ? 'cards' : 'beach';
+        out.write('\x1b[2J');
+        draw();
+      }
     });
   }
 
   function draw() {
-    out.write(`\x1b[H${frame(agents, tick, opts, showHidden)}\x1b[J`);
+    out.write(`\x1b[H${frame(agents, tick, opts, showHidden, motions, view)}\x1b[J`);
   }
-  setInterval(() => { tick += 1; draw(); }, FRAME_MS);
+  setInterval(() => {
+    tick += 1;
+    motions = stepMotion(motions, agents, tick);
+    draw();
+  }, FRAME_MS);
   setInterval(() => {
     try {
       agents = sample();
