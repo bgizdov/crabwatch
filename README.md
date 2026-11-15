@@ -4,6 +4,8 @@ A pixel-art terminal dashboard that shows your coding agents. Claude Code sessio
 
 ![crabwatch demo](docs/demo.png)
 
+![crabwatch beach view](docs/beach.png)
+
 ## How it works
 - Finds `claude` and `opencode` processes using `ps`.
 - Adds up CPU use from `/proc` for each agent and all of its child processes, so running tools count as work.
