@@ -4,6 +4,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { claudeQuestion, opencodeQuestion, normalizeV2Content } from './asking.js';
 import { lastMessageMs, opencodeBusy } from './idle.js';
+import { claudeModel, opencodeModel } from './model.js';
 
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude');
 const TAIL_BYTES = 256 * 1024;
@@ -74,6 +75,7 @@ export function claudeAgentInfo(pid, procStart) {
   let question = null;
   let messageMs = null;
   let title = null;
+  let model = null;
   const path = findTranscript(info.cwd, info.sessionId);
   if (path) {
     try {
@@ -88,10 +90,11 @@ export function claudeAgentInfo(pid, procStart) {
           messageMs: lastMessageMs(entries),
           // the title can scroll out of the tail window; keep the last one seen
           title: claudeTitle(entries) ?? cached?.title ?? null,
+          model: claudeModel(entries),
         };
         claudeCache.set(path, cached);
       }
-      ({ question, messageMs, title } = cached);
+      ({ question, messageMs, title, model } = cached);
     } catch {
       question = null;
     }
@@ -103,6 +106,7 @@ export function claudeAgentInfo(pid, procStart) {
     lastActivityMs,
     question,
     title,
+    model,
   };
 }
 
@@ -141,19 +145,27 @@ export async function createOpencodeReader() {
     union select project_id from project_directory where directory = ?`);
   // The project row gives the repo a session belongs to; the session's own directory is
   // often an opencode worktree with a random name (…/worktree/<hash>/silent-engine).
-  const latest = (table, cols) => {
-    const select = `select ${cols}, p.worktree as project_dir, p.name as project_name
+  // Falls back to plainer column lists for opencode versions that lack some columns.
+  const prepareFirst = (sqls) => sqls.map((sql) => tryPrepare(db, sql)).find(Boolean) ?? null;
+  const latest = (table, ...colSets) => {
+    const selects = colSets.map((cols) => `select ${cols}, p.worktree as project_dir, p.name as project_name
       from ${table} s left join project p on p.id = s.project_id
-      where s.parent_id is null and s.time_archived is null`;
+      where s.parent_id is null and s.time_archived is null`);
     return {
-      byProject: tryPrepare(db, `${select} and s.project_id = ? order by s.time_updated desc limit 1`),
-      any: tryPrepare(db, `${select} order by s.time_updated desc limit 1`),
+      byProject: prepareFirst(selects.map((sel) => `${sel} and s.project_id = ? order by s.time_updated desc limit 1`)),
+      any: prepareFirst(selects.map((sel) => `${sel} order by s.time_updated desc limit 1`)),
     };
   };
   const v1 = latest('session', 's.id, s.title, s.directory, s.time_updated');
-  const v2 = latest('session_v2', 's.id, s.title, s.directory, s.time_updated, s.time_busy, s.time_idle');
+  const v2 = latest(
+    'session_v2',
+    's.id, s.title, s.directory, s.time_updated, s.time_busy, s.time_idle, s.model',
+    's.id, s.title, s.directory, s.time_updated, s.time_busy, s.time_idle',
+  );
   const v1MessageQ = tryPrepare(db, 'select id, data, time_updated from message where session_id = ? order by time_created desc limit 1');
   const v1PartsQ = tryPrepare(db, 'select data from part where message_id = ? order by time_created');
+  const v1ModelQ = tryPrepare(db, `select data from message where session_id = ?
+    and json_extract(data, '$.role') = 'assistant' order by time_created desc limit 1`);
   const v2MessageQ = tryPrepare(db, `select type, data, time_updated from session_message
     where session_id = ? and type in ('user', 'assistant') order by seq desc limit 1`);
 
@@ -191,6 +203,11 @@ export async function createOpencodeReader() {
     return { role: JSON.parse(msg.data).role, parts, time: msg.time_updated };
   }
 
+  function sessionModel(session) {
+    if (session.v === 'v2') return opencodeModel(session.row.model);
+    return opencodeModel(v1ModelQ?.get(session.row.id)?.data);
+  }
+
   // cpuIdle is only used when the session has no busy flag (older opencode).
   return function opencodeAgentInfo(cwd, cpuIdle, isServer = false) {
     try {
@@ -208,6 +225,7 @@ export async function createOpencodeReader() {
         title: session.row.title ?? null,
         projectDir: session.row.project_dir ?? null,
         projectName: session.row.project_name ?? null,
+        model: sessionModel(session),
       };
     } catch {
       return null;

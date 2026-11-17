@@ -41,6 +41,7 @@ function demoSampler() {
     state: i % 2 ? 'working' : 'sleeping',
     cpu: 0,
     question: null,
+    model: ['claude-opus-5-5', 'claude-sonnet-5-5', 'big-pickle', 'claude-fable-5-2', 'claude-haiku-5-5', 'gpt-5'][i],
   }));
   const questions = ['Want me to open a pull request?', 'Allow Bash?', 'Use Postgres or SQLite for the cache?', 'Shall I run the migrations?'];
   return () => {
