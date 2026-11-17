@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { idleSeconds, visibleAgents, lastMessageMs, opencodeBusy } from '../src/idle.js';
+import {
+  idleSeconds, visibleAgents, lastMessageMs, opencodeBusy, byAttention,
+} from '../src/idle.js';
 
 const NOW = 1_000_000_000;
 
@@ -64,4 +66,35 @@ test('opencodeBusy: unknown for old-style sessions and stale busy flags', () => 
   assert.equal(opencodeBusy({ time_updated: now }, now), undefined); // legacy table, no columns
   const crashed = { time_busy: now - 3 * 3600e3, time_idle: null, time_updated: now - 3 * 3600e3 };
   assert.equal(opencodeBusy(crashed, now), undefined);
+});
+
+test('visibleAgents never hides an agent that is asking, however long it has been idle', () => {
+  const agents = [
+    { pid: 1, idleSec: 0 },
+    { pid: 2, idleSec: 99 * 3600, question: 'Allow Bash?' },
+    { pid: 3, idleSec: 99 * 3600 },
+  ];
+  const { shown, hidden } = visibleAgents(agents, 24 * 3600);
+  assert.deepEqual(shown.map((a) => a.pid), [1, 2]);
+  assert.equal(hidden, 1);
+  assert.equal(shown.filter((a) => a.question).length, 1, 'header asking count includes it');
+});
+
+test('byAttention: asking, then working, then sleeping; ties by kind then pid', () => {
+  const a = (kind, pid, state, question = null) => ({ kind, pid, state, question });
+  const agents = [
+    a('opencode', 5, 'sleeping'),
+    a('claude', 9, 'working'),
+    a('claude', 3, 'sleeping'),
+    a('opencode', 2, 'sleeping', 'Which DB?'),
+    a('claude', 7, 'working'),
+    a('claude', 8, 'working', 'Allow Bash?'),
+    a('opencode', 1, 'working'),
+  ];
+  const order = [...agents].sort(byAttention).map((x) => `${x.kind}:${x.pid}`);
+  assert.deepEqual(order, [
+    'claude:8', 'opencode:2', // asking
+    'claude:7', 'claude:9', 'opencode:1', // working
+    'claude:3', 'opencode:5', // sleeping
+  ]);
 });
