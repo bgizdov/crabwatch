@@ -1,6 +1,6 @@
 // Beach view: every agent on one shared strip of sand, wandering under drifting clouds.
 import {
-  agentArt, bubble, statusLine, idleLine, agentLabel, pad, cut, fg, bg, BUBBLE_ROWS, WHITE,
+  agentArt, bubble, statusLine, idleLine, agentLabel, pad, cut, visibleWidth, fg, bg, BUBBLE_ROWS, WHITE,
 } from './render.js';
 import { motionView, motionKey } from './motion.js';
 
@@ -26,10 +26,12 @@ function placeClouds(width, tick, row) {
   return `${fg(WHITE)}${cells.join('')}${RESET}`;
 }
 
+// Measured in terminal columns, so wide CJK and emoji names stay inside their slot.
 function center(text, width) {
   const t = cut(text, width - 2);
-  const left = Math.floor((width - t.length) / 2);
-  return ' '.repeat(left) + t + ' '.repeat(width - left - t.length);
+  const w = visibleWidth(t);
+  const left = Math.floor((width - w) / 2);
+  return ' '.repeat(left) + t + ' '.repeat(width - left - w);
 }
 
 function waves(width, tick, row) {
