@@ -4,7 +4,7 @@ import { createSampler } from './procs.js';
 import { renderCard, layout } from './render.js';
 import { visibleAgents } from './idle.js';
 import { renderBeach } from './beach.js';
-import { stepMotion, motionView, motionKey } from './motion.js';
+import { stepMotion, motionView, motionKey, bellFor } from './motion.js';
 
 const FRAME_MS = 250;
 const SAMPLE_MS = 1000;
@@ -23,7 +23,12 @@ function parseArgs(argv) {
     throw new Error('--max-idle must be a non-negative number of hours (0 shows all)');
   }
   return {
-    demo: argv.includes('--demo'), beach: argv.includes('--beach'), threshold, maxIdle, help: argv.includes('--help'),
+    demo: argv.includes('--demo'),
+    beach: argv.includes('--beach'),
+    bell: argv.includes('--bell'),
+    threshold,
+    maxIdle,
+    help: argv.includes('--help'),
   };
 }
 
@@ -95,7 +100,7 @@ function frame(allAgents, tick, opts, showHidden, motions, view) {
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (opts.help) {
-    process.stdout.write('Usage: crabwatch [--demo] [--beach] [--threshold <cpu%>] [--max-idle <hours, 0 = show all>]\n');
+    process.stdout.write('Usage: crabwatch [--demo] [--beach] [--bell] [--threshold <cpu%>] [--max-idle <hours, 0 = show all>]\n');
     return;
   }
   const sample = opts.demo ? demoSampler() : await createSampler({ threshold: opts.threshold });
@@ -142,7 +147,10 @@ async function main() {
   }, FRAME_MS);
   setInterval(() => {
     try {
+      const prevAgents = agents;
       agents = sample();
+      const bell = bellFor(opts.bell, prevAgents, agents);
+      if (bell) out.write(bell);
     } catch (err) {
       out.write(`\x1b[?25h\x1b[?1049l`);
       process.stderr.write(`crabwatch: failed to sample processes: ${err.message}\n`);

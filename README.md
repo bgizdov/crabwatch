@@ -15,6 +15,7 @@ A pixel-art terminal dashboard that shows your coding agents. Claude Code sessio
 - Agents idle for more than 24 hours are hidden (press `h` to toggle), and the header shows how many were hidden. Change the limit with `--max-idle <hours>`; `--max-idle 0` shows everything.
 - **Animations**: working agents scuttle sideways (faster with more CPU), sleeping ones breathe and sometimes peek with one eye, and agents waiting on you jump and wave. A state change plays a short scene: a startled jump when an agent wakes up, a yawn when it falls asleep, confetti when it finishes and asks you something.
 - **Idle decay**: seaweed grows after 1h idle, a cobweb with a spider appears after 6h, and after 24h the agent is half buried in sand.
+- **Bell**: with `--bell`, crabwatch rings the terminal bell once when one or more agents start waiting on you, so you notice even when the dashboard is in a background window or tmux pane. Agents already asking when crabwatch starts don't ring.
 - **Beach view**: press `b` (or start with `--beach`) to put every agent on one shared beach with clouds and waves instead of cards.
 - **Speech bubble**: appears when an agent is waiting on you. For Claude, that's an `AskUserQuestion` call, a permission prompt, or a final message ending in a question (read from the session transcript in `~/.claude/projects`). For opencode, it's a pending `question` tool call or a final question, read only from the `session`, `message` and `part` tables of `~/.local/share/opencode/opencode.db`.
 
@@ -30,6 +31,7 @@ npm run demo                      # fake agents, randomly changing state
 node src/dashboard.js --threshold 10   # use a different CPU % for "working"
 node src/dashboard.js --max-idle 0    # also show agents idle for more than 24h
 node src/dashboard.js --demo --beach  # start in the beach view
+node src/dashboard.js --bell          # ring the terminal bell when an agent starts asking
 npm test
 ```
 Keys: `b` switches between cards and the beach; `h` shows or hides the agents idle for more than 24h; `q` or `Ctrl-C` quits.
