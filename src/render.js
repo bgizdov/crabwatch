@@ -13,16 +13,50 @@ const dimColor = (c) => c.map((v) => Math.round(v * 0.5));
 export const CARD_WIDTH = 24;
 const FX_WIDTH = 4;
 
+const ZERO_WIDTH = /^[\p{M}​-‏︀-️]$/u;
+const WIDE_EMOJI = /^\p{Emoji_Presentation}$/u;
+// East Asian Wide/Fullwidth blocks: Hangul Jamo, CJK + kana, Hangul syllables,
+// CJK compatibility, fullwidth forms, and the supplementary ideograph planes.
+const WIDE_RANGES = [
+  [0x1100, 0x115f], [0x2e80, 0x303e], [0x3041, 0x33ff], [0x3400, 0x4dbf], [0x4e00, 0x9fff],
+  [0xa000, 0xa4cf], [0xa960, 0xa97f], [0xac00, 0xd7a3], [0xf900, 0xfaff], [0xfe30, 0xfe4f],
+  [0xff00, 0xff60], [0xffe0, 0xffe6], [0x20000, 0x3fffd],
+];
+
+// Terminal columns taken by one code point. Emoji count as wide only when they default
+// to emoji presentation, so text symbols like ▶ and ☾ stay one column.
+export function charWidth(cp) {
+  const ch = String.fromCodePoint(cp);
+  if (ZERO_WIDTH.test(ch)) return 0;
+  if (WIDE_EMOJI.test(ch) || WIDE_RANGES.some(([lo, hi]) => cp >= lo && cp <= hi)) return 2;
+  return 1;
+}
+
+const stringWidth = (s) => [...s].reduce((w, ch) => w + charWidth(ch.codePointAt(0)), 0);
+
 export function visibleWidth(s) {
-  return [...s.replace(/\x1b\[[0-9;]*m/g, '')].length;
+  return stringWidth(s.replace(/\x1b\[[0-9;]*m/g, ''));
 }
 
 export function pad(s, width) {
   return s + ' '.repeat(Math.max(0, width - visibleWidth(s)));
 }
 
+// Longest prefix of whole characters that fits in `width` columns.
+function take(s, width) {
+  let out = '';
+  let used = 0;
+  for (const ch of s) {
+    const w = charWidth(ch.codePointAt(0));
+    if (used + w > width) break;
+    out += ch;
+    used += w;
+  }
+  return out;
+}
+
 export function cut(s, width) {
-  return s.length > width ? `${s.slice(0, width - 1)}…` : s;
+  return stringWidth(s) > width ? `${take(s, width - 1)}…` : s;
 }
 
 export function toHalfBlocks(grid, palette, dim = false) {
@@ -74,9 +108,9 @@ export function wrapText(text, width, maxLines) {
   const lines = [];
   let i = 0;
   while (i < words.length && lines.length < maxLines) {
-    let line = words[i].slice(0, width);
+    let line = take(words[i], width);
     i += 1;
-    while (i < words.length && line.length + 1 + words[i].length <= width) {
+    while (i < words.length && stringWidth(line) + 1 + stringWidth(words[i]) <= width) {
       line += ` ${words[i]}`;
       i += 1;
     }
@@ -84,7 +118,7 @@ export function wrapText(text, width, maxLines) {
   }
   if (i < words.length) {
     const rest = `${lines.pop()} ${words.slice(i).join(' ')}`;
-    lines.push(`${rest.slice(0, width - 1)}…`);
+    lines.push(`${take(rest, width - 1)}…`);
   }
   return lines;
 }
