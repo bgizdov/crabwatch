@@ -64,6 +64,24 @@ export function stepMotion(prev, agents, tick) {
   return next;
 }
 
+// Agents that changed into asking since the previous sample. Agents seen for the first
+// time (including everything on the first sample) are skipped: they were not seen changing.
+export function newlyAsking(prevAgents, agents) {
+  if (!prevAgents) return [];
+  const before = new Map(prevAgents.map((a) => [motionKey(a), moodOf(a)]));
+  return agents.filter((a) => {
+    const was = before.get(motionKey(a));
+    return was !== undefined && was !== 'asking' && moodOf(a) === 'asking';
+  });
+}
+
+export const BELL = '\x07';
+
+// The terminal bell to write after a sample: one per sample, however many agents started asking.
+export function bellFor(enabled, prevAgents, agents) {
+  return enabled && newlyAsking(prevAgents, agents).length > 0 ? BELL : '';
+}
+
 export function motionView(m, tick) {
   if (!m) return { transition: null, age: 0, pos: 0 };
   const age = tick - m.since;

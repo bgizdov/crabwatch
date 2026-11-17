@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   moodOf, transitionFor, walkSpeed, pingPong, decayLevel, stepMotion, motionView, TRANSITION_TICKS,
+  newlyAsking, bellFor, BELL,
 } from '../src/motion.js';
 
 test('moodOf: asking wins over state', () => {
@@ -73,4 +74,31 @@ test('motionView only reports a transition for a short while', () => {
   assert.equal(motionView(m, 12).age, 2);
   assert.equal(motionView(m, 12).pos, 3);
   assert.deepEqual(motionView(undefined, 4), { transition: null, age: 0, pos: 0 });
+});
+
+const ag = (pid, mood) => ({
+  kind: 'claude', pid, state: mood === 'working' ? 'working' : 'sleeping', question: mood === 'asking' ? 'Allow Bash?' : null,
+});
+
+test('newlyAsking: agents that changed into asking since the previous sample', () => {
+  const keys = (prev, next) => newlyAsking(prev, next).map((a) => a.pid);
+  assert.deepEqual(keys([ag(1, 'working')], [ag(1, 'asking')]), [1], 'working -> asking');
+  assert.deepEqual(keys([ag(1, 'sleeping')], [ag(1, 'asking')]), [1], 'sleeping -> asking');
+  assert.deepEqual(keys(null, [ag(1, 'asking')]), [], 'already asking at startup');
+  assert.deepEqual(keys([ag(1, 'working')], [ag(1, 'working'), ag(2, 'asking')]), [], 'new agent appears already asking');
+  assert.deepEqual(keys([ag(1, 'asking')], [ag(1, 'asking')]), [], 'stays asking');
+  assert.deepEqual(keys([ag(1, 'working'), ag(2, 'sleeping')], [ag(1, 'asking'), ag(2, 'asking')]), [1, 2]);
+  const hidden = { ...ag(3, 'sleeping'), idleSec: 99 * 3600 };
+  assert.deepEqual(keys([hidden], [{ ...hidden, question: 'Still there?' }]), [3], 'idle-hidden agents still count');
+  assert.deepEqual(keys([ag(1, 'working')], [{ ...ag(1, 'asking'), kind: 'opencode' }]), [], 'keyed by kind and pid');
+});
+
+test('bellFor: one bell per sample with a new asker, none when disabled', () => {
+  const prev = [ag(1, 'working'), ag(2, 'sleeping')];
+  const next = [ag(1, 'asking'), ag(2, 'asking')];
+  assert.equal(BELL, '\x07');
+  assert.equal(bellFor(true, prev, next), BELL);
+  assert.equal(bellFor(false, prev, next), '');
+  assert.equal(bellFor(true, next, next), '');
+  assert.equal(bellFor(true, null, next), '');
 });
