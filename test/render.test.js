@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SPRITES, spriteFrame } from '../src/sprites.js';
 import {
-  toHalfBlocks, visibleWidth, renderCard, layout, wrapText, formatDuration, agentArt, CARD_WIDTH,
+  toHalfBlocks, visibleWidth, renderCard, layout, wrapText, formatDuration, agentArt, CARD_WIDTH, cut, charWidth,
 } from '../src/render.js';
 
 test('every sprite frame is a rectangle of the same size with known colors', () => {
@@ -150,4 +150,57 @@ test('renderCard shows the model when known and keeps the same height', () => {
   assert.equal(new Set(withModel.map(visibleWidth)).size, 1);
   const long = renderCard({ ...base, model: 'x'.repeat(60) }, 0);
   assert.equal(new Set(long.map(visibleWidth)).size, 1);
+});
+
+const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
+
+test('charWidth counts wide CJK and emoji as 2 and joiners as 0', () => {
+  const w = (s) => charWidth(s.codePointAt(0));
+  assert.equal(w('a'), 1);
+  assert.equal(w('修'), 2);
+  assert.equal(w('の'), 2);
+  assert.equal(w('한'), 2);
+  assert.equal(w('Ａ'), 2);
+  assert.equal(w('🚀'), 2);
+  assert.equal(w('‍'), 0);
+  assert.equal(w('️'), 0);
+  assert.equal(w('́'), 0);
+  // narrow symbols the dashboard itself draws stay 1 column
+  for (const s of ['▀', '▄', '╭', '─', '▶', '☾', '…', '·']) assert.equal(w(s), 1, s);
+});
+
+test('visibleWidth measures terminal columns, ignoring ANSI codes', () => {
+  assert.equal(visibleWidth('修复'), 4);
+  assert.equal(visibleWidth('🚀'), 2);
+  assert.equal(visibleWidth('\x1b[38;2;1;2;3mabc\x1b[0m'), 3);
+  assert.equal(visibleWidth('é'), 1);
+});
+
+test('cut fits wide text into the width and never splits a surrogate pair', () => {
+  assert.equal(cut('short', 10), 'short');
+  assert.equal(cut('abcdefghij', 5), 'abcd…');
+  const cjk = cut('修复登录页面的错误并添加测试用例', 23);
+  assert.ok(visibleWidth(cjk) <= 23, `${cjk} is ${visibleWidth(cjk)}`);
+  assert.ok(cjk.endsWith('…'));
+  const emoji = cut('Ship it! 🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀', 23);
+  assert.ok(!LONE_SURROGATE.test(emoji), JSON.stringify(emoji));
+  assert.ok(visibleWidth(emoji) <= 23);
+  assert.equal(cut('修复', 4), '修复');
+});
+
+test('wrapText keeps CJK and emoji lines within the width', () => {
+  const lines = wrapText('要不要我现在打开一个拉取请求并运行所有测试？', 20, 2);
+  assert.ok(lines.every((l) => visibleWidth(l) <= 20), JSON.stringify(lines));
+  const emoji = wrapText('Deploy 🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀 now?', 10, 2);
+  assert.ok(emoji.every((l) => visibleWidth(l) <= 10 && !LONE_SURROGATE.test(l)), JSON.stringify(emoji));
+});
+
+test('renderCard keeps every line CARD_WIDTH columns for CJK and emoji text', () => {
+  const agent = {
+    kind: 'claude', pid: 1, name: '项目-仓库-名字-很长-很长', state: 'sleeping', cpu: 0, sessionSec: 60, idleSec: 0,
+    title: '修复登录页面的错误并添加测试用例', question: '要不要我现在打开一个拉取请求？ 🚀🚀',
+  };
+  const lines = renderCard(agent, 0);
+  assert.deepEqual([...new Set(lines.map(visibleWidth))], [CARD_WIDTH]);
+  assert.ok(lines.every((l) => !LONE_SURROGATE.test(l)));
 });
