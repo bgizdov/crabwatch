@@ -33,6 +33,7 @@ node src/dashboard.js --threshold 10   # use a different CPU % for "working"
 node src/dashboard.js --max-idle 0    # also show agents idle for more than 24h
 node src/dashboard.js --demo --beach  # start in the beach view
 node src/dashboard.js --bell          # ring the terminal bell when an agent starts asking
+node src/dashboard.js --help          # all options and keys
 npm test
 ```
 Keys: `b` switches between cards and the beach; `h` shows or hides the agents idle for more than 24h; `q` or `Ctrl-C` quits.
