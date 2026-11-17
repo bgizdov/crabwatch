@@ -2,7 +2,7 @@
 // Pixel-art terminal dashboard: Claude crabs and opencode bots, sleeping or working.
 import { createSampler } from './procs.js';
 import { renderCard, layout } from './render.js';
-import { visibleAgents } from './idle.js';
+import { visibleAgents, byAttention } from './idle.js';
 import { renderBeach } from './beach.js';
 import { stepMotion, motionView, motionKey, bellFor } from './motion.js';
 
@@ -83,7 +83,7 @@ function frame(allAgents, tick, opts, showHidden, motions, view) {
     + `\x1b[38;2;120;150;255m${agents.length - working - asking} sleeping${RESET}`
     + (hidden ? `${GRAY} · ${hidden} hidden (idle >${maxIdle}h)${RESET}` : '')
     + (showHidden && idleCount ? `${GRAY} · showing ${idleCount} idle >${maxIdle}h${RESET}` : '');
-  const sorted = [...agents].sort((a, b) => a.kind.localeCompare(b.kind) || a.pid - b.pid);
+  const sorted = [...agents].sort(byAttention);
   const cards = () => layout(
     sorted.map((a) => renderCard(a, tick + a.pid, motionView(motions.get(motionKey(a)), tick))),
     width - 2,
