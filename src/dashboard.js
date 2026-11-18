@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // Pixel-art terminal dashboard: Claude crabs and opencode bots, sleeping or working.
 import { createSampler } from './procs.js';
+import { parseArgs, USAGE, HELP } from './args.js';
+import { snapshot } from './snapshot.js';
 import { renderCard, layout } from './render.js';
 import { visibleAgents, byAttention } from './idle.js';
 import { renderBeach } from './beach.js';
@@ -8,29 +10,6 @@ import { stepMotion, motionView, motionKey, bellFor } from './motion.js';
 
 const FRAME_MS = 250;
 const SAMPLE_MS = 1000;
-
-function parseArgs(argv) {
-  const get = (flag, fallback) => {
-    const i = argv.indexOf(flag);
-    return i >= 0 && argv[i + 1] ? Number(argv[i + 1]) : fallback;
-  };
-  const threshold = get('--threshold', 5);
-  if (!Number.isFinite(threshold) || threshold < 0) {
-    throw new Error('--threshold must be a non-negative number (CPU %)');
-  }
-  const maxIdle = get('--max-idle', 24);
-  if (!Number.isFinite(maxIdle) || maxIdle < 0) {
-    throw new Error('--max-idle must be a non-negative number of hours (0 shows all)');
-  }
-  return {
-    demo: argv.includes('--demo'),
-    beach: argv.includes('--beach'),
-    bell: argv.includes('--bell'),
-    threshold,
-    maxIdle,
-    help: argv.includes('--help'),
-  };
-}
 
 function demoSampler() {
   const names = ['api-server', 'web-app', 'infra', 'docs-site', 'mobile', 'data-etl'];
@@ -98,12 +77,25 @@ function frame(allAgents, tick, opts, showHidden, motions, view) {
 }
 
 async function main() {
-  const opts = parseArgs(process.argv.slice(2));
+  let opts;
+  try {
+    opts = parseArgs(process.argv.slice(2));
+  } catch (err) {
+    process.stderr.write(`crabwatch: ${err.message}\n${USAGE}\n`);
+    process.exit(2);
+  }
   if (opts.help) {
-    process.stdout.write('Usage: crabwatch [--demo] [--beach] [--bell] [--threshold <cpu%>] [--max-idle <hours, 0 = show all>]\n');
+    process.stdout.write(`${HELP}\n`);
     return;
   }
   const sample = opts.demo ? demoSampler() : await createSampler({ threshold: opts.threshold });
+  if (opts.json) {
+    // CPU % needs two samples, so take one, wait a sample interval, and report the second.
+    sample();
+    await new Promise((resolve) => { setTimeout(resolve, SAMPLE_MS); });
+    process.stdout.write(`${JSON.stringify(snapshot(sample(), opts.maxIdle * 3600))}\n`);
+    return;
+  }
 
   let agents = sample();
   let tick = 0;
