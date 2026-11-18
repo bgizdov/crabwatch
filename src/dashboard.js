@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Pixel-art terminal dashboard: Claude crabs and opencode bots, sleeping or working.
 import { createSampler } from './procs.js';
-import { parseArgs, USAGE, HELP } from './args.js';
+import {
+  parseArgs, USAGE, HELP, liveModeError,
+} from './args.js';
 import { snapshot } from './snapshot.js';
 import { renderCard, layout } from './render.js';
 import { visibleAgents, byAttention } from './idle.js';
@@ -87,6 +89,11 @@ async function main() {
   if (opts.help) {
     process.stdout.write(`${HELP}\n`);
     return;
+  }
+  const notTerminal = liveModeError({ isTTY: process.stdout.isTTY, json: opts.json, help: opts.help });
+  if (notTerminal) {
+    process.stderr.write(`crabwatch: ${notTerminal}\n`);
+    process.exit(2);
   }
   const sample = opts.demo ? demoSampler() : await createSampler({ threshold: opts.threshold });
   if (opts.json) {
