@@ -8,7 +8,7 @@ const DASHBOARD = fileURLToPath(new URL('../src/dashboard.js', import.meta.url))
 
 test('parseArgs: defaults', () => {
   assert.deepEqual(parseArgs([]), {
-    demo: false, beach: false, bell: false, threshold: 5, maxIdle: 24, help: false,
+    demo: false, beach: false, bell: false, json: false, threshold: 5, maxIdle: 24, help: false,
   });
 });
 
@@ -45,7 +45,7 @@ test('parseArgs: rejects unknown flags, missing values, positionals and bad numb
 });
 
 test('HELP lists every flag with its default, and the keys', () => {
-  for (const s of ['--demo', '--beach', '--bell', '--threshold', '--max-idle', '--help', '-h', 'default 5', 'default 24']) {
+  for (const s of ['--demo', '--beach', '--bell', '--json', '--threshold', '--max-idle', '--help', '-h', 'default 5', 'default 24']) {
     assert.ok(HELP.includes(s), s);
   }
   for (const s of ['b ', 'h ', 'q ', 'Ctrl-C']) assert.ok(HELP.includes(s), `key ${s}`);

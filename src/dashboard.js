@@ -2,6 +2,7 @@
 // Pixel-art terminal dashboard: Claude crabs and opencode bots, sleeping or working.
 import { createSampler } from './procs.js';
 import { parseArgs, USAGE, HELP } from './args.js';
+import { snapshot } from './snapshot.js';
 import { renderCard, layout } from './render.js';
 import { visibleAgents, byAttention } from './idle.js';
 import { renderBeach } from './beach.js';
@@ -88,6 +89,13 @@ async function main() {
     return;
   }
   const sample = opts.demo ? demoSampler() : await createSampler({ threshold: opts.threshold });
+  if (opts.json) {
+    // CPU % needs two samples, so take one, wait a sample interval, and report the second.
+    sample();
+    await new Promise((resolve) => { setTimeout(resolve, SAMPLE_MS); });
+    process.stdout.write(`${JSON.stringify(snapshot(sample(), opts.maxIdle * 3600))}\n`);
+    return;
+  }
 
   let agents = sample();
   let tick = 0;
