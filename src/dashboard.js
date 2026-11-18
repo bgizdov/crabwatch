@@ -7,6 +7,9 @@ import { renderCard, layout } from './render.js';
 import { visibleAgents, byAttention } from './idle.js';
 import { renderBeach } from './beach.js';
 import { stepMotion, motionView, motionKey, bellFor } from './motion.js';
+import {
+  countsOf, terminalTitle, createTitleSetter, TITLE_PUSH, TITLE_POP,
+} from './title.js';
 
 const FRAME_MS = 250;
 const SAMPLE_MS = 1000;
@@ -103,10 +106,13 @@ async function main() {
   let view = opts.beach ? 'beach' : 'cards';
   let motions = stepMotion(new Map(), agents, tick);
   const out = process.stdout;
-  out.write('\x1b[?1049h\x1b[?25l'); // alt screen, hide cursor
+  const showTitle = opts.title && out.isTTY;
+  const setTitle = createTitleSetter((s) => out.write(s));
+  const restoreTitle = showTitle ? TITLE_POP : '';
+  out.write(`\x1b[?1049h\x1b[?25l${showTitle ? TITLE_PUSH : ''}`); // alt screen, hide cursor, save title
 
   const cleanup = () => {
-    out.write('\x1b[?25h\x1b[?1049l');
+    out.write(`\x1b[?25h\x1b[?1049l${restoreTitle}`);
     process.exit(0);
   };
   process.on('SIGINT', cleanup);
@@ -131,6 +137,10 @@ async function main() {
 
   function draw() {
     out.write(`\x1b[H${frame(agents, tick, opts, showHidden, motions, view)}\x1b[J`);
+    if (showTitle) {
+      const shown = showHidden ? agents : visibleAgents(agents, opts.maxIdle * 3600).shown;
+      setTitle(terminalTitle(countsOf(shown), opts.demo));
+    }
   }
   setInterval(() => {
     tick += 1;
@@ -144,7 +154,7 @@ async function main() {
       const bell = bellFor(opts.bell, prevAgents, agents);
       if (bell) out.write(bell);
     } catch (err) {
-      out.write(`\x1b[?25h\x1b[?1049l`);
+      out.write(`\x1b[?25h\x1b[?1049l${restoreTitle}`);
       process.stderr.write(`crabwatch: failed to sample processes: ${err.message}\n`);
       process.exit(1);
     }

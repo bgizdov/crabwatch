@@ -8,7 +8,7 @@ const DASHBOARD = fileURLToPath(new URL('../src/dashboard.js', import.meta.url))
 
 test('parseArgs: defaults', () => {
   assert.deepEqual(parseArgs([]), {
-    demo: false, beach: false, bell: false, json: false, threshold: 5, maxIdle: 24, help: false,
+    demo: false, beach: false, bell: false, json: false, title: true, threshold: 5, maxIdle: 24, help: false,
   });
 });
 
