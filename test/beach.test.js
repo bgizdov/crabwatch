@@ -35,3 +35,18 @@ test('renderBeach animates waves', () => {
 test('renderBeach with no agents is empty', () => {
   assert.deepEqual(renderBeach([], new Map(), 0, 80), []);
 });
+
+test('renderBeach keeps CJK and emoji names within the terminal width', () => {
+  const wide = [
+    { kind: 'claude', pid: 1, name: '项目仓库', state: 'working', cpu: 50, sessionSec: 60, idleSec: 0 },
+    { kind: 'opencode', pid: 2, name: '🚀ship-it🚀', state: 'sleeping', cpu: 0, sessionSec: 60, idleSec: 0 },
+    { kind: 'claude', pid: 3, name: '修复登录页面的错误并添加测试用例和文档', state: 'sleeping', cpu: 0, sessionSec: 60, idleSec: 0 },
+  ];
+  for (const width of [40, 80, 120]) {
+    const lines = renderBeach(wide, new Map(), 3, width);
+    for (const l of lines) assert.ok(visibleWidth(l) <= width, `width ${width}: "${l}" is ${visibleWidth(l)}`);
+    const nameRows = lines.filter((l) => l.includes('项目') || l.includes('🚀') || l.includes('修复'));
+    assert.ok(nameRows.length > 0, `${width}: name rows rendered`);
+    for (const l of nameRows) assert.equal(visibleWidth(l), width, `${width}: name row fills the width exactly`);
+  }
+});
