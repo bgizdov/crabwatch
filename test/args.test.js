@@ -2,7 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { parseArgs, USAGE, HELP } from '../src/args.js';
+import {
+  parseArgs, USAGE, HELP, liveModeError,
+} from '../src/args.js';
 
 const DASHBOARD = fileURLToPath(new URL('../src/dashboard.js', import.meta.url));
 
@@ -64,4 +66,22 @@ test('dashboard --help prints the help on stdout and exits 0', () => {
   const r = spawnSync(process.execPath, [DASHBOARD, '-h'], { encoding: 'utf8', timeout: 5000 });
   assert.equal(r.status, 0);
   assert.equal(r.stdout, `${HELP}\n`);
+});
+
+test('liveModeError: live mode needs a terminal; --json and --help do not', () => {
+  assert.equal(liveModeError({ isTTY: true, json: false, help: false }), null);
+  assert.equal(liveModeError({ isTTY: true, json: true, help: false }), null);
+  assert.equal(liveModeError({ isTTY: false, json: true, help: false }), null);
+  assert.equal(liveModeError({ isTTY: false, json: false, help: true }), null);
+  assert.match(liveModeError({ isTTY: false, json: false, help: false }), /not a terminal.*--json/);
+  assert.match(liveModeError({ isTTY: undefined, json: false, help: false }), /--json/);
+});
+
+test('dashboard live mode with piped stdout exits 2 quickly, writes nothing to stdout', () => {
+  const started = Date.now();
+  const r = spawnSync(process.execPath, [DASHBOARD, '--demo'], { encoding: 'utf8', timeout: 5000 });
+  assert.equal(r.status, 2, r.stderr);
+  assert.ok(Date.now() - started < 3000);
+  assert.equal(r.stdout, '');
+  assert.match(r.stderr, /^crabwatch: stdout is not a terminal; use --json/);
 });

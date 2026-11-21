@@ -52,3 +52,10 @@ export function parseArgs(argv) {
     help: values.help,
   };
 }
+
+// Live mode redraws full-screen frames forever, so it needs a terminal on stdout.
+// Returns the error message to print, or null when it's fine to continue.
+export function liveModeError({ isTTY, json, help }) {
+  if (isTTY || json || help) return null;
+  return 'stdout is not a terminal; use --json for a one-shot snapshot';
+}
