@@ -17,6 +17,7 @@ A pixel-art terminal dashboard that shows your coding agents. Claude Code sessio
 - **Animations**: working agents scuttle sideways (faster with more CPU), sleeping ones breathe and sometimes peek with one eye, and agents waiting on you jump and wave. A state change plays a short scene: a startled jump when an agent wakes up, a yawn when it falls asleep, confetti when it finishes and asks you something.
 - **Idle decay**: seaweed grows after 1h idle, a cobweb with a spider appears after 6h, and after 24h the agent is half buried in sand.
 - **Bell**: with `--bell`, crabwatch rings the terminal bell once when one or more agents start waiting on you, so you notice even when the dashboard is in a background window or tmux pane. Agents already asking when crabwatch starts don't ring.
+- **Terminal title**: the tab or window title shows the counts, e.g. `🦀 2 asking · 1 working · crabwatch`, so a background tab or tmux window list tells you when an agent needs you. The previous title comes back on exit in terminals that support xterm's title stack. Turn it off with `--no-title`.
 - **Beach view**: press `b` (or start with `--beach`) to put every agent on one shared beach with clouds and waves instead of cards.
 - **Speech bubble**: appears when an agent is waiting on you. For Claude, that's an `AskUserQuestion` call, a permission prompt, or a final message ending in a question (read from the session transcript in `~/.claude/projects`). For opencode, it's a pending `question` tool call or a final question, read only from the `session`, `message` and `part` tables of `~/.local/share/opencode/opencode.db`.
 
@@ -34,6 +35,7 @@ node src/dashboard.js --max-idle 0    # also show agents idle for more than 24h
 node src/dashboard.js --demo --beach  # start in the beach view
 node src/dashboard.js --bell          # ring the terminal bell when an agent starts asking
 node src/dashboard.js --json          # print one JSON snapshot of the agents and exit
+node src/dashboard.js --no-title      # don't put the asking/working counts in the terminal title
 node src/dashboard.js --help          # all options and keys
 npm test
 ```
